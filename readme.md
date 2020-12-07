@@ -1,7 +1,7 @@
 
 **Author : _Rahul Jakkamsetty_**
 
-The purpose of this project is to create to four svg files with objects circle, square, triangle and polyline and read them and apply transformations
+The purpose of this project is to create four svg files with objects circle, square, triangle and polyline and read them and apply transformations
 on objects like rotation, scale and translation.
 
 The codes are present in **[src](https://github.com/Rahul-python/transformations_on_svg/tree/main/src)** folder.
