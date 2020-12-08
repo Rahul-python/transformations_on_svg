@@ -11,7 +11,7 @@ The file 'create_svg.py' creates different objects with opencv, detects the cont
 These svg files are stored in data folder.
 Four svg files will be created in **[data](https://github.com/Rahul-python/transformations_on_svg/tree/main/data)** folder: circle.svg, square.svg, triangle.svg and polyline.svg.
 
-## file_2: [recognition_transfrom.py](https://github.com/Rahul-python/transformations_on_svg/blob/main/src/recognition_transform.py)
+## file_2: [recognition_transform.py](https://github.com/Rahul-python/transformations_on_svg/blob/main/src/recognition_transform.py)
 
 **Neither numpy nor opencv is used**.
 
