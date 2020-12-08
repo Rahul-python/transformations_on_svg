@@ -5,6 +5,7 @@ Created on Sun Dec  6 03:45:46 2020
 @author: Rahul Jakkamsetty
 """
 import os
+import math
 import xml.etree.ElementTree as ET
 ET.register_namespace("","http://www.w3.org/2000/svg")
 
@@ -70,6 +71,8 @@ class Image_Recog_Transform:
         self.circle=False
         self.triangle=False
         self.square=False
+        self.polyline = False
+        self.tag = False
      
         try:
             self.values=self.root[0].attrib['d']
@@ -111,6 +114,7 @@ class Image_Recog_Transform:
                 self.cir_center_y=float(self.root[self.fig_no].attrib['cy'])
                 self.radius=float(self.root[self.fig_no].attrib['r'])
                 self.circle=True
+                self.tag=True
                 print('circle')
             elif 'rect' in tag:
                 self.min_x=float(self.root[self.fig_no].attrib['x'])
@@ -118,21 +122,36 @@ class Image_Recog_Transform:
                 self.side1=float(self.root[self.fig_no].attrib['width'])
                 self.side2=float(self.root[self.fig_no].attrib['height'])
                 self.square=True
+                self.tag=True
                 print('square')
             elif 'polygon' in tag:
+         
                 self.string=self.root[self.fig_no].attrib['points']
                 pts_un=list(map(lambda x:float(x),self.string.split()))
-                pts=list(zip(pts_un,pts_un[1:],pts_un[:1]))
-                points_x=[];points_y=[]
-                for i in range(int(len(self.fin_val)/2)):
-                    points_x.append(pts[2*i][0])
-                    points_y.append(pts[2*i][1])
+                pts=list(zip(pts_un,pts_un[1:]+pts_un[:1]))
+                self.points_x=[];self.points_y=[]
+                for i in range(int(len(pts)/2)):
+                    self.points_x.append(pts[2*i][0])
+                    self.points_y.append(pts[2*i][1])
                     
-                
-                self.centroid_x=int(sum(points_x)/3)
-                self.centroid_y=int(sum(points_y)/3)
+             
+                self.centroid_x=int(sum(self.points_x)/3)
+                self.centroid_y=int(sum(self.points_y)/3)
                 self.triangle=True
+                self.tag=True
                 print('triangle')
+            elif 'polyline' in tag:
+                self.string = self.root[self.fig_no].attrib['points']
+                pts_un = list(map(lambda x: float(x), self.string.split()))
+                pts = list(zip(pts_un, pts_un[1:]+pts_un[:1]))
+                self.points_x = []
+                self.points_y = []
+                for i in range(int(len(pts)/2)):
+                    self.points_x.append(pts[2*i][0])
+                    self.points_y.append(pts[2*i][1])
+                self.tag = True
+                self.polyline = True
+                print('polyline')
         
         
         
@@ -277,6 +296,7 @@ class Image_Recog_Transform:
         newe.attrib['stroke-width']=str(5)
         newe.attrib['fill']='none'
         self.tree.write(self.path)
+        
                 
     def draw_square(self):
         """
@@ -312,11 +332,13 @@ class Image_Recog_Transform:
             self.root.remove(self.root[0])
         newe=ET.SubElement(self.root,'polygon')
         self.string=''
+  
         cen=list(zip(*self.li))
+      
         self.centroid_x=int(sum(cen[0])/3)
         self.centroid_y=int(sum(cen[1])/3)
         for i in self.li:
-            self.string=self.string+str(i[0])+' '+str(i[1])
+            self.string=self.string+str(i[0])+' '+str(i[1])+' '
         
         newe.attrib['points']=self.string
         newe.attrib['stroke']='green'
@@ -332,15 +354,119 @@ class Image_Recog_Transform:
         None.
 
         """
-        if self.keep:
+        if self.keep and not self.polyline:
             newe=ET.SubElement(self.root,'path')
             newe.attrib['d']=self.values
             newe.attrib['stroke']='green'
             newe.attrib['stroke-width']=str(5)
             newe.attrib['fill']='none'
             self.tree.write(self.path)
+        elif self.polyline:
+            if not self.keep:
+                self.root.remove(self.root[0])
+            newe=ET.SubElement(self.root,'polyline')
+            self.string=''
             
+            for i in self.li:
+                self.string=self.string+str(i[0])+' '+str(i[1])+' '
             
+            newe.attrib['points']=self.string
+            newe.attrib['stroke']='green'
+            newe.attrib['stroke-width']=str(5)
+            newe.attrib['fill']='none'
+            self.tree.write(self.path)
+        
+
+    def rotate(self, angle, p_x, p_y, x, y):
+        """
+        Rotates a point by given angle about given co-ordinates
+
+        Parameters
+        ----------
+        angle : int or float in radians
+            angle by which the object should be rotated
+        p_x : int
+            x_co-ordinate about which object should be rotated.
+        p_y : int
+            y_co-ordinate about which object should be rotated.
+        x : int
+            x_co-ordinate of the point which should be rotated.
+        y : int
+            y_co-ordinate of the point which should be rotated.
+
+        Returns
+        -------
+        list
+            x,y co-ordinates of rotated point.
+
+        """
+        return [(math.cos(angle)*(x-p_x)-math.sin(angle)*(y-p_y))+p_x, (math.sin(angle)*(x-p_x)+math.cos(angle)*(y-p_y))+p_y]
+
+
+    def transform_ohne_svg(self, rotation=(0, 0, 0), scale=1, t_x=0, t_y=0):
+        """
+        Function to apply transformations like rotation, scale and translation.
+        writes the object after transfromation to given svg file. However,the tranformations are performend in python and written to svg.
+        
+
+        Parameters
+        ----------
+        rotation : tuple, optional
+            tuple[0] is rotation angle. tuple[1] is x-coordiante of the point about which rotation is done.
+            tuple[2] is y-coordiante of the point about which rotation is done.
+            The default is (0,0,0).
+        scale : int or float, optional
+            amount by which the object is scaled. The default is 1.
+            The scaling is done about the center of the object. 
+            If circle and square, with respect to their centers. 
+            If triangle with respect to centriod and if polyline with respect to apporiximate mid point of the whole polyline.
+            
+        t_x : int, optional
+            translation of object in x-direction. The default is 0.
+        t_y : int, optional
+            translation of object in y-direction. The default is 0.
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        angle_rad = rotation[0]*math.pi/180
+        
+        if self.tag and self.circle:
+          
+            self.radius = self.radius*scale
+            rot = self.rotate(
+                angle_rad, rotation[1], rotation[2], self.cir_center_x, self.cir_center_y)
+            self.cir_center_x = rot[0]+t_x
+            self.cir_center_y = rot[1]+t_y
+            self.draw_circle()
+        elif self.tag and self.square:
+            
+            rot = self.rotate(angle_rad, rotation[1], rotation[2], self.min_x, self.min_y)
+            self.min_x = rot[0]+t_x
+            self.min_y = rot[1]+t_y
+            self.side1 = scale*self.side1
+            self.side2 = scale*self.side2
+            self.draw_square()
+        elif self.tag and self.triangle:
+ 
+            points_x= list(map(lambda x, y: self.rotate(angle_rad, rotation[1], rotation[2], x, y)[0], self.points_x, self.points_y))
+            self.points_y = list(map(lambda x, y: self.rotate(angle_rad, rotation[1], rotation[2], x, y)[1], self.points_x, self.points_y))
+            self.points_x=points_x
+            self.li = list(map(lambda x, y: [scale*x+t_x, scale*y+t_y], self.points_x, self.points_y))
+            self.draw_triangle()
+            
+        elif self.tag and self.polyline:
+            
+            points_x = list(map(lambda x, y: self.rotate(angle_rad, rotation[1], rotation[2], x, y)[0], self.points_x, self.points_y))
+            self.points_y = list(map(lambda x, y: self.rotate(angle_rad, rotation[1], rotation[2], x, y)[1], points_x, self.points_y))
+            self.points_x=points_x
+            self.li = list(map(lambda x, y: [scale*x+t_x, scale*y+t_y], self.points_x, self.points_y))
+            self.draw_polyline()
+        else:
+            pass
     
         
         
@@ -353,7 +479,7 @@ class Image_Recog_Transform:
         ----------
         rotation : tuple, optional
             tuple[0] is rotation angle. tuple[1] is x-coordiante of the point about which rotation is done.
-            tuple[2] is x-coordiante of the point about which rotation is done.
+            tuple[2] is y-coordiante of the point about which rotation is done.
             The default is (0,0,0).
         scale : int or float, optional
             amount by which the object is scaled. The default is 1.
@@ -412,9 +538,16 @@ if __name__=='__main__' :
         direc='../data/'
     else:
         direc=''
-    figure=Image_Recog_Transform(direc+'polyline.svg',keep_original=True) #change the filename here.
-    figure.transform((10,0,0))
+    svg_with_tag=True # if true transformations are done within the python and written to svg, else transformations are done in svg.
     
+    if svg_with_tag:
+        figure=Image_Recog_Transform(direc+'triangle_with_tag.svg',keep_original=True) #change the filename here. file names: circle_with_tag.svg, square_with_tag.svg, triangle_with_tag.svg, polyline_with_tag.svg 
+        figure.transform_ohne_svg(rotation=(180,0,0),scale=1)
+        print('Finsihed_writing')
+    else:
+        figure=Image_Recog_Transform(direc+'triangle.svg',keep_original=True) #change the filename here.
+        figure.transform(rotation=(180,0,0),scale=1)
+        print('Finsihed_writing')
     
     
             
